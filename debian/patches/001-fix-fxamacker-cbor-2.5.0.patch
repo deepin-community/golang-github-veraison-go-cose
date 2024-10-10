@@ -1,0 +1,196 @@
+From 8b1b067ffd02d646687e14b307bc267255a69f72 Mon Sep 17 00:00:00 2001
+From: qmuntal <qmuntaldiaz@microsoft.com>
+Date: Fri, 18 Aug 2023 12:17:52 +0200
+Subject: [PATCH 1/3] upgrade fxamacker/cbor to v2.5.0
+
+Signed-off-by: qmuntal <qmuntaldiaz@microsoft.com>
+---
+ go.mod       |  2 +-
+ go.sum       |  4 ++--
+ sign_test.go | 37 ++++++++++++++++++++++++++-----------
+ 3 files changed, 29 insertions(+), 14 deletions(-)
+
+diff --git a/sign_test.go b/sign_test.go
+index 793d967..4b1f701 100644
+--- a/sign_test.go
++++ b/sign_test.go
+@@ -654,13 +654,13 @@ func TestSignature_Sign_Internal(t *testing.T) {
+ 					},
+ 				},
+ 			},
+-			protected: []byte{0x40, 0xa1, 0x00, 0x00},
++			protected: []byte{0x43, 0xa1, 0x00, 0x00},
+ 			payload:   []byte("hello world"),
+ 			external:  []byte{},
+ 			toBeSigned: []byte{
+ 				0x85,                                                       // array type
+ 				0x69, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, // context
+-				0x40, 0xa1, 0x00, 0x00, // body_protected
++				0x43, 0xa1, 0x00, 0x00, // body_protected
+ 				0x47, 0xa1, 0x01, 0x3a, 0x6d, 0x6f, 0x63, 0x6a, // sign_protected
+ 				0x40,                                                                   // external
+ 				0x4b, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, // payload
+@@ -2222,7 +2222,7 @@ func TestSignature_toBeSigned(t *testing.T) {
+ 		payload   []byte
+ 		external  []byte
+ 		want      []byte
+-		wantErr   bool
++		wantErr   string
+ 	}{
+ 		{
+ 			name: "valid signature",
+@@ -2233,12 +2233,12 @@ func TestSignature_toBeSigned(t *testing.T) {
+ 					},
+ 				},
+ 			},
+-			protected: []byte{0x40, 0xa1, 0x00, 0x00},
++			protected: []byte{0x43, 0xa1, 0x00, 0x00},
+ 			payload:   []byte("hello world"),
+ 			want: []byte{
+ 				0x85,                                                       // array type
+ 				0x69, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, // context
+-				0x40, 0xa1, 0x00, 0x00, // body_protected
++				0x43, 0xa1, 0x00, 0x00, // body_protected
+ 				0x47, 0xa1, 0x01, 0x3a, 0x6d, 0x6f, 0x63, 0x6a, // sign_protected
+ 				0x40,                                                                   // external
+ 				0x4b, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, // payload
+@@ -2255,7 +2255,20 @@ func TestSignature_toBeSigned(t *testing.T) {
+ 			},
+ 			protected: []byte{0x00},
+ 			payload:   []byte{},
+-			wantErr:   true,
++			wantErr:   "cbor: require bstr type",
++		},
++		{
++			name: "extraneous protected data",
++			s: &Signature{
++				Headers: Headers{
++					Protected: ProtectedHeader{
++						HeaderLabelAlgorithm: algorithmMock,
++					},
++				},
++			},
++			protected: []byte{0x40, 0xa1, 0x00, 0x00},
++			payload:   []byte("hello world"),
++			wantErr:   "cbor: 3 bytes of extraneous data starting at index 1",
+ 		},
+ 		{
+ 			name: "invalid sign protected header",
+@@ -2268,7 +2281,7 @@ func TestSignature_toBeSigned(t *testing.T) {
+ 			},
+ 			protected: []byte{0x40},
+ 			payload:   []byte{},
+-			wantErr:   true,
++			wantErr:   "protected header: header label: require int / tstr type",
+ 		},
+ 		{
+ 			name: "invalid raw sign protected header",
+@@ -2279,15 +2292,17 @@ func TestSignature_toBeSigned(t *testing.T) {
+ 			},
+ 			protected: []byte{0x40},
+ 			payload:   []byte{},
+-			wantErr:   true,
++			wantErr:   "cbor: require bstr type",
+ 		},
+ 	}
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+ 			got, err := tt.s.toBeSigned(tt.protected, tt.payload, tt.external)
+-			if (err != nil) != tt.wantErr {
+-				t.Errorf("Signature.toBeSigned() error = %v, wantErr %v", err, tt.wantErr)
+-				return
++			if err != nil && (err.Error() != tt.wantErr) {
++				t.Fatalf("Signature.toBeSigned() error = %v, wantErr %v", err, tt.wantErr)
++			}
++			if err == nil && (tt.wantErr != "") {
++				t.Fatalf("Signature.toBeSigned() error = %v, wantErr %v", err, tt.wantErr)
+ 			}
+ 			if !reflect.DeepEqual(got, tt.want) {
+ 				t.Errorf("Signature.toBeSigned() = %v, want %v", got, tt.want)
+
+From a8064f65532ed5665fe1deea4e2d0c77bc758dde Mon Sep 17 00:00:00 2001
+From: qmuntal <qmuntaldiaz@microsoft.com>
+Date: Fri, 18 Aug 2023 12:23:11 +0200
+Subject: [PATCH 2/3] replace DecMode.Valid with DecMode.Wellformed
+
+Signed-off-by: qmuntal <qmuntaldiaz@microsoft.com>
+---
+ cbor.go | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/cbor.go b/cbor.go
+index 15bdc54..883f52b 100644
+--- a/cbor.go
++++ b/cbor.go
+@@ -95,7 +95,7 @@ func deterministicBinaryString(data cbor.RawMessage) (cbor.RawMessage, error) {
+ 	}
+ 
+ 	// fast path: return immediately if bstr is already deterministic
+-	if err := decModeWithTagsForbidden.Valid(data); err != nil {
++	if err := decModeWithTagsForbidden.Wellformed(data); err != nil {
+ 		return nil, err
+ 	}
+ 	ai := data[0] & 0x1f
+
+From fbff14974e5b570d11d53404d71692e462aae977 Mon Sep 17 00:00:00 2001
+From: qmuntal <qmuntaldiaz@microsoft.com>
+Date: Tue, 26 Sep 2023 09:01:30 +0200
+Subject: [PATCH 3/3] add test case
+
+Signed-off-by: qmuntal <qmuntaldiaz@microsoft.com>
+---
+ headers_test.go | 34 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
+
+diff --git a/headers_test.go b/headers_test.go
+index 004390b..7213c3d 100644
+--- a/headers_test.go
++++ b/headers_test.go
+@@ -2,6 +2,7 @@ package cose
+ 
+ import (
+ 	"errors"
++	"math"
+ 	"reflect"
+ 	"testing"
+ )
+@@ -34,6 +35,39 @@ func TestProtectedHeader_MarshalCBOR(t *testing.T) {
+ 			},
+ 		},
+ 		{
++			name: "header with MinInt64 alg",
++			h: ProtectedHeader{
++				HeaderLabelAlgorithm: math.MinInt64,
++			},
++			want: []byte{
++				0x4b,                                                       // bstr
++				0xa1,                                                       // map
++				0x01, 0x3b, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // alg
++			},
++		},
++		{
++			name: "canonical ordering",
++			h: ProtectedHeader{
++				HeaderLabelAlgorithm:   1,
++				HeaderLabelCritical:    []any{HeaderLabelAlgorithm},
++				HeaderLabelContentType: 16,
++				HeaderLabelKeyID:       []byte{1, 2, 3},
++				HeaderLabelIV:          []byte{1, 2, 3},
++				0x46:                   0x47,
++				0x66:                   0x67,
++			},
++			want: []byte{
++				0x58, 0x1a, // bstr
++				0xa7,       // map
++				0x01, 0x01, // alg
++				0x02, 0x81, 0x01, // crit
++				0x03, 0x10, // cty
++				0x04, 0x43, 0x01, 0x02, 0x03, // kid
++				0x05, 0x43, 0x01, 0x02, 0x03, // iv
++				0x18, 0x46, 0x18, 0x47, // 0x46: 0x47
++				0x18, 0x66, 0x18, 0x67, // 0x66: 0x67
++			},
++		}, {
+ 			name: "nil header",
+ 			h:    nil,
+ 			want: []byte{0x40},
