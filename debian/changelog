@@ -1,5 +1,16 @@
-template-repository (1.0-1) unstable; urgency=medium
+golang-github-veraison-go-cose (1.2.1-2) unstable; urgency=medium
 
-  * Initial release
+  [ Mathias Gibbens ]
+  * Cherry-pick fix for building with golang-github-fxamacker-cbor-dev 2.5.0
 
- -- Tsic404 <liuheng@deepin.org>  Sat, 28 Jan 2023 13:46:49 +0800
+  [ Simon Josefsson ]
+  * copyright: Mention additional author.
+  * Back out patch (i386 fail) and disable sign_test self-check.
+
+ -- Simon Josefsson <simon@josefsson.org>  Thu, 18 Jan 2024 15:08:17 +0100
+
+golang-github-veraison-go-cose (1.2.1-1) unstable; urgency=medium
+
+  * Initial release (Closes: #1060834)
+
+ -- Simon Josefsson <simon@josefsson.org>  Mon, 15 Jan 2024 11:10:32 +0100
